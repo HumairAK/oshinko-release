@@ -14,9 +14,6 @@ from os import path
 
 API_ENDPOINT = 'https://api.github.com'
 
-WITH_VERBOSITY = log.DEBUG
-WITHOUT_VERBOSITY = log.INFO
-
 
 def get_opts():
     parser = argparse.ArgumentParser(description='Automate release procedure on github.')
@@ -34,10 +31,8 @@ def get_opts():
                         help='a git hub auth token. Skips user input for authentication if '
                              'provided.')
 
-    parser.add_argument('-v', '--verbose', help='increase output verbosity', action='store_true')
-
-    parser.add_argument('-t', '--deletetag', help='Delete tag with release, [-d] must be '
-                                                  'specified.', action='store_true')
+    parser.add_argument('-t', dest='deletetag', help='Delete tag with release, [-d] must be '
+                                   'specified.', action='store_true')
 
     args = parser.parse_args()
     token = args.token[0] if args.token else None
@@ -48,9 +43,9 @@ def get_opts():
     if delete_tag and not tag:
         parser.error('[-t] requires a release tag to be specified via [-d].')
 
-    repo, verbose = args.repo[0], args.verbose
+    repo = args.repo[0]
 
-    loglevel = WITH_VERBOSITY if verbose else WITHOUT_VERBOSITY
+    loglevel = log.INFO
     log.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', level=loglevel)
     log.getLogger('requests').setLevel(log.WARNING)
 
