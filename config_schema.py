@@ -34,6 +34,5 @@ schema = {
                 "label": {'type': 'string', 'required': True}
             }
         }
-
     }
 }

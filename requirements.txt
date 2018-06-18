@@ -1,3 +1,8 @@
+magic
+jenkins
+celery
+flask
+werkzeug
 requests==2.10.0
 Cerberus==1.2
 PyGithub==1.39

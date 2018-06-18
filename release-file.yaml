@@ -1,0 +1,19 @@
+tag_name: v0.5.1
+target_commitish: master
+name: v0.5.1
+body: |
+    # Title
+    - Release note 1
+    - Release not 2
+    # Another title
+    - Release note 1
+    - Release not 2
+draft: false
+prerelease: false
+assets:
+  - Content-Type: application/zip
+    name: /home/hukhan/Downloads/test_v0.5.2_amd64.tar.gz
+    label: test_v0.5.2_amd64.tar.gz
+  - Content-Type: application/gzip
+    name: /home/hukhan/Downloads/test_v0.5.2_linux_386.tar.gz
+    label: test-label

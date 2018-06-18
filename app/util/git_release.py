@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 from github import Github, BadCredentialsException, UnknownObjectException
 from cerberus import Validator
 from config_schema import schema
@@ -155,25 +154,26 @@ def upload_checksum(data, release, tmpdir):
 
 # TODO: Add verification release was uploaded successfully
 def create_release(repo, tag_name, name, body, draft, prerelease,
-                   target_commitish, assets, tmpdir=''):
+                   target_commitish, assets=[], tmpdir=''):
 
     log.info('Creating a git release with tag {}.'.format(tag_name))
     repo.create_git_release(tag_name, name, body, draft, prerelease, target_commitish)
 
-    release = repo.get_release(tag_name)
-    checksum_data = create_checksum_text(assets)
+    if assets:
+        release = repo.get_release(tag_name)
+        checksum_data = create_checksum_text(assets)
 
-    log.info('Uploading assets...')
-    for asset in assets:
-        release.upload_asset(
-            asset['name'],
-            asset['label'],
-            asset['Content-Type']
-        )
-        log.info('Asset {} uploaded successfully.'.format(asset['label']))
-    upload_checksum(checksum_data, release, tmpdir)
+        log.info('Uploading assets...')
+        for asset in assets:
+            release.upload_asset(
+                asset['name'],
+                asset['label'],
+                asset['Content-Type']
+            )
+            log.info('Asset {} uploaded successfully.'.format(asset['label']))
+        upload_checksum(checksum_data, release, tmpdir)
 
-    log.info('Release successfully created.')
+        log.info('Release successfully created.')
 
 
 def delete_release(tag, delete_tag, repo):

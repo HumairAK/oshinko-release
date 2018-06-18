@@ -1,0 +1,19 @@
+# Oshinko S2I images used by these templates
+These templates use the following oshinko s2i images:
+
+- radanalyticsio/radanalytics-pyspark:v<<<OSHINKO_VERSION>>> found here
+- radanalyticsio/radanalytics-java-spark:v<<<OSHINKO_VERSION>>> found here
+- radanalyticsio/radanalytics-scala-spark:v<<<OSHINKO_VERSION>>> found here
+
+# Apache Spark version
+The referenced oshinko s2i images use Apache Spark 2.3.0
+
+# Oshinko binary version
+The referenced oshinko s2i images use oshinko binary release v<<<OSHINKO_VERSION>>> found <<<CLI_LINK>>>
+
+# Summary of changes in templates
+The S2I templates now support kubernetes native scheduling for spark applications as an option
+instead of a Spark standalone deployment. To use this deployment mode, set the
+OSHINKO_KUBE_SCHEDULER parameter to true when launching the template. Note that
+clusters created this way are always ephemeral and do not support some oshinko options
+like cluster configuration configmaps.

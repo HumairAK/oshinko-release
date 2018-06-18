@@ -1,9 +1,6 @@
-#!/usr/bin/python2
-
 import argparse
 import re
 import requests
-from sys import exit
 from time import sleep
 import logging as log
 import json
@@ -127,14 +124,13 @@ def fetch_build_latest(user, repo):
     data = r.json()
     if not data['results']:
         log.error('This repo does not have any builds in its history to watch')
-        exit(1)
+        raise RuntimeError('Repo {} does not have any builds in its history to watch'.format(repo))
     build = data['results'][0]
     return build
 
 
 # Finds builds that match the provided tags
 # Only the most recent matches are returned if more than one are found.
-# ToDO: report error if a build isn't found
 def fetch_builds(tags_original, user, repo, page_size):
     endpoint = '{}/repositories/{}/{}/buildhistory/?page_size={}' \
         .format(V2_ENDPOINT, user, repo, page_size)
@@ -188,8 +184,7 @@ def trigger_build(user, repo, build, token, force=False):
     return r.status_code == 200
 
 
-def main():
-    repo, token, interval, retries, force, tags = get_opts()
+def watch_build(repo, token, interval, retries, force, tags):
     user, repo = repo.split('/')
 
     builds_to_watch = fetch_builds(tags, user, repo, 200) \
@@ -197,7 +192,7 @@ def main():
 
     if not builds_to_watch:
         log.error('Could not find any builds.')
-        exit(1)
+        raise RuntimeError('Repo {} does not have any builds in its history to watch'.format(repo))
 
     # Check if the builds_to_watch are all in a non-success state
     # If they are not in a BUILDING or QUEUED state we only proceed if [-f] is supplied
@@ -207,9 +202,11 @@ def main():
         if status == SUCCESS or status < QUEUED:
             if not force:
                 state = 'success' if status == SUCCESS else 'stalled'
-                log.error('The build [{}] is in a {} state. Nothing to watch. '
-                          'Use -f to force a trigger. Exiting.'.format(build_code, state))
-                exit(1)
+                error_msg = 'The build [{}] is in a {} state. Nothing to watch. Use -f to ' \
+                            'force a trigger. Exiting.'.format(build_code, state)
+                log.error(error_msg)
+                raise RuntimeError(error_msg)
+
             else:
                 initial_builds_to_trigger.append(build)
 
@@ -268,10 +265,17 @@ def main():
         retries -= 1
 
     if not all_builds_succeeded:
-        log.warn('All builds were not successfully completed.')
-        exit(1)
+        error_msg = 'All builds were not successfully completed.'
+        log.warn(error_msg)
+        RuntimeError(error_msg)
     else:
         log.info('All builds successfully completed.')
 
 
-main()
+def main():
+    repo, token, interval, retries, force, tags = get_opts()
+    watch_build(repo, token, interval, retries, force, tags)
+
+
+if __name__ == "__main__":
+    main()
