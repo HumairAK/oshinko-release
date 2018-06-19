@@ -2,14 +2,13 @@
 
 openshift_spark () {
   BRANCH=`echo ${VERSION} | grep -o '^[0-9]\.[0-9]'`
-  # master_update
+  GH_JSON=${REPORT_DIR}/gh_info.json
+  echo "{\"tag\": \"<<tag>>\", \"branch\": \"${BRANCH}\"}" > ${GH_JSON}
   branch_update
   tag_update
 }
 
 function master_update(){
-  setup_wdir
-
   echo "Run change-yaml.sh"
   ./change-yaml.sh ${VERSION}
 
@@ -38,7 +37,10 @@ function master_update(){
 }
 
 function branch_update(){
-  echo "Create a new X.Y branch for the new spark version."
+  echo "---------------------------------------------------------"
+  echo "Create a new branch ${BRANCH} for the new spark version."
+  echo "---------------------------------------------------------"
+
   git checkout -b ${BRANCH}
   if [ "${QUIET}" = "true" ] ; then
     echo
@@ -52,15 +54,25 @@ function branch_update(){
 }
 
 function tag_update(){
+  echo "-----------------------------------------------------"
   echo "Tag the commit on a branch with X.Y.0-1"
+  echo "-----------------------------------------------------"
   git checkout ${BRANCH}
-  TAG=`./tag.sh | grep 'Adding tag *' | sed "s/Adding tag //g"`
+  tag_sh_output="$(./tag.sh 2>&1)"
 
+  echo -e "${tag_sh_output}"
+  TAG=`echo -e "${tag_sh_output}" | grep 'Adding tag *' | sed "s/Adding tag //g"`
+
+  ACTUAL_TAG=`git describe --tags`
   # Verify:
-  ACTUAL_TAG=`git tag --list | head -n1`
   if [ "${TAG}" = "${ACTUAL_TAG}" ] ; then
     echo "Tag was successfully updated. Good to push."
+  else
+    printf  "Tag was not successfully updated.\nTag retrieved from tag.sh: ${TAG}\nTag retrieved from [git tag --list]: ${ACTUAL_TAG}\n"
+    exit 1
   fi
+
+  sed -i "s/<<tag>>/${TAG}/g" ${GH_JSON}
 
   if [ "${QUIET}" = "true" ] ; then
     echo

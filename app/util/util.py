@@ -59,3 +59,17 @@ def fetch_sti_rel_notes():
     with open('sti-release-notes.txt', 'r') as notes_file:
         notes = notes_file.read()
     return notes
+
+
+def fetch_openshift_spark_gh_info(tmpdir):
+    path = os.path.join(tmpdir, 'project_report', 'gh_info.json')
+    with open(path, 'r') as f:
+        data = f.read()
+    return data
+
+
+def fetch_report(tmpdir):
+    path = os.path.join(tmpdir, 'project_report', 'outfile.txt')
+    with open(path, 'r') as f:
+        data = f.read()
+    return data

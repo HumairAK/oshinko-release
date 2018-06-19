@@ -18,12 +18,17 @@ oshinko_s2i () {
 
 function release_branch(){
   BRANCH=release${VERSION}
+
+  echo "-----------------------------------------------------"
+  echo "Creating a new release branch ${BRANCH}"
+  echo "-----------------------------------------------------"
+
   git checkout -b ${BRANCH}
 
   echo "Run change-yaml.sh"
   ./change-yaml.sh ${VERSION}
 
-  echo "regenerate the *-build directory"
+  echo "Regenerate the *-build directory"
   ./make-build-dirs.sh
 
   echo "Report the changes"
@@ -47,6 +52,11 @@ function release_branch(){
 
 function tag_latest(){
   TAG=v${VERSION}
+
+  echo "-----------------------------------------------------"
+  echo "Tagging latest branch to ${TAG}"
+  echo "-----------------------------------------------------"
+
   git tag ${TAG}
   if [ "${QUIET}" = "true" ] ; then
     echo

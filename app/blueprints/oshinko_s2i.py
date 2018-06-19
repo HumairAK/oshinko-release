@@ -75,7 +75,7 @@ def merge_pr():
         return json_response('Event is not in success state. No merge initiated.', 200)
 
     # Get all statuses pertaining to this head commit:
-    status_endpoint = data_dict['repository']['statuses_url'].format(sha=sha)
+    status_endpoint = data_dict['repository']['statuses_url'].format(sha=sha_commit)
     statuses = requests.get(status_endpoint).json()
     statuses = filter(lambda s: s['state'] == 'success', statuses)
     if not statuses:
@@ -119,8 +119,9 @@ def merge_pr():
 
     # Group watchbuild tasks, to run in parallel
     watch_scala_build, watch_java_build, watch_sti_spark = (
-        worker.watch_autobuild.s(sti['REPO'], sti['TOKEN'], INTERVAL, RETRY_COUNT, False)
-        for sti in [sti_scala, sti_java, sti_pyspark])
+        worker.watch_autobuild.s(sti[0], sti[1], INTERVAL, RETRY_COUNT, False)
+        for sti in [(sti_scala, sti_scala_token), (sti_java, sti_java_token),
+                    (sti_pyspark, sti_pyspark_token)])
 
     build_tasks = group(watch_java_build, watch_scala_build, watch_sti_spark)
 

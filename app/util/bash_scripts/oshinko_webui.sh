@@ -8,6 +8,11 @@ oshinko_webui () {
 
 function tag_latest(){
   TAG=v${VERSION}
+
+  echo "-----------------------------------------------------"
+  echo "Tagging latest branch to ${TAG}"
+  echo "-----------------------------------------------------"
+
   git tag ${TAG}
 
   if [ "${QUIET}" = "true" ] ; then

@@ -1,5 +1,5 @@
 import pytest
-from config_sample import config
+from resources.config_sample import config
 from ..app import create_app
 
 

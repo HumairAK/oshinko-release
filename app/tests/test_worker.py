@@ -29,5 +29,6 @@ def test_oshinko_s2i_template_release(client):
 
     worker.get_repo.assert_called_with(gh_user, gh_repo_name, gh_token, owner=gh_repo_owner)
     worker.create_release.assert_called_with('Mock Repository', 'v0.5.2',
-                                             'version 0.5.2', notes_expected, False, False, 'master')
+                                             'version 0.5.2', notes_expected,
+                                             False, False, 'master')
 

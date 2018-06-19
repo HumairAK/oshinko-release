@@ -6,8 +6,12 @@ import magic
 import logging as log
 from celery_once import QueueOnce
 from shutil import rmtree
+
+from flask import json
+
 from ..app import create_app, create_celery
-from ..util.util import download_file, create_tag, fetch_sti_rel_notes
+from ..util.util import download_file, create_tag, fetch_sti_rel_notes, \
+    fetch_openshift_spark_gh_info, fetch_report
 from ..util.git_release import create_release, get_repo
 from ..util.watch_builds import watch_build
 
@@ -44,16 +48,33 @@ def watch_autobuild(self, tags, repo, token, interval, retries, force):
 """ OPENSHIFT SPARK """
 
 
+# Pre-conditions: The following files are written by repo_ctrl.sh (where project=openshift-spark)
+#   1) tags/branches to file: gh_info.json
+#   2) a report file: outfile.txt
 @celery.task()
 def openshift_spark_update(gh_repo_owner, gh_repo_name, gh_user, gh_email, gh_token, version):
     d = tempfile.mkdtemp()
-    failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh',
-                              gh_repo_owner, gh_repo_name, gh_token, d, version,
-                              'openshift-spark', gh_user, gh_email])
+    failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh', '-q', gh_repo_owner,
+                              gh_repo_name, gh_token, d, version, 'openshift-spark',
+                              gh_user, gh_email])
+    report = fetch_report(d)
+
+    # Fetch tags in report
+    tags_branches = fetch_openshift_spark_gh_info(d)
+    tags_branches = json.loads(tags_branches)
     rmtree(d, ignore_errors=True)
+
     if failed:
         raise RuntimeError('Failed to execute openshift spark version update script.')
-    return 0
+
+    tag, branch = tags_branches['tag'], tags_branches['branch']
+
+    branch_sf, branch_docker_tag = branch, '{}-latest'.format(branch)
+    tag_sf, tag_docker_tag = tag, tag
+
+    tags = [{"source_type": "Tag", "sourceref": tag_sf, "docker_tag": tag_docker_tag},
+            {"source_type": "Branch", "sourceref": branch_sf, "docker_tag": branch_docker_tag}]
+    return tags
 
 
 """ Oshinko WEBUI """
@@ -65,6 +86,8 @@ def oshinko_webui_version_update(gh_repo_owner, gh_repo_name, gh_user, gh_email,
     failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh',
                               gh_repo_owner, gh_repo_name, gh_token, d, version,
                               'oshinko-webui', gh_user, gh_email])
+
+    report = fetch_report(d)
 
     rmtree(d, ignore_errors=True)
     if failed:
@@ -88,6 +111,8 @@ def oc_proxy_version_update(gh_repo_owner, gh_repo_name, gh_user, gh_email, gh_t
     failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh',
                               gh_repo_owner, gh_repo_name, gh_token, d, version,
                               'oc-proxy', gh_user, gh_email])
+
+    report = fetch_report(d)
 
     rmtree(d, ignore_errors=True)
     if failed:
@@ -195,6 +220,7 @@ def oshinko_s2i_create_rel_branch(gh_repo_owner, repo_name, gh_user, gh_email, g
     failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh', '-s 0',
                               gh_repo_owner, repo_name, gh_token, d, version,
                               'oshinko-s2i', gh_user, gh_email])
+    report = fetch_report(d)
 
     rmtree(d, ignore_errors=True)
     if failed:
@@ -225,13 +251,13 @@ def oshinko_s2i_merge_pr(gh_repo_owner, gh_repo_name, gh_user, gh_token, head_br
     pull_request = None
     for pull in pulls:
         pull_head = pull.head
-        if pull_head.sha == sha_commit and pull_head.user.login == gh_user:
+        if pull_head.sha == sha_commit and pull_head.user.login == gh_repo_owner:
             pull_request = pull
             break
 
     if pull_request is None:
         raise RuntimeError('Unable to find PR for {}:{} with head.sha={}'
-                           .format(gh_user, head_branch, sha_commit))
+                           .format(gh_repo_owner, head_branch, sha_commit))
 
     pr_merge_status = pull_request.merge().merged
 
@@ -245,6 +271,7 @@ def oshinko_s2i_tag_latest(gh_repo_owner, gh_repo_name, gh_user, gh_email, gh_to
     failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh', '-s 1',
                               gh_repo_owner, gh_repo_name, gh_token, d, version,
                               'oshinko-s2i', gh_user, gh_email])
+    report = fetch_report(d)
 
     rmtree(d, ignore_errors=True)
     if failed:
