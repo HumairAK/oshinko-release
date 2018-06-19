@@ -134,6 +134,3 @@ def merge_pr():
     workflow.delay()
 
     return json_response('Merge task started.', 200)
-
-
-

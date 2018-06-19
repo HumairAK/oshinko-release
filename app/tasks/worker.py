@@ -6,14 +6,12 @@ import magic
 import logging as log
 from celery_once import QueueOnce
 from shutil import rmtree
-
 from flask import json
-
 from ..app import create_app, create_celery
-from ..util.util import download_file, create_tag, fetch_sti_rel_notes, \
-    fetch_openshift_spark_gh_info, fetch_report
 from ..util.git_release import create_release, get_repo
-from ..util.watch_builds import watch_build
+from ..util.watch_builds import watch_build, log as watch_build_logger
+from ..util.util import download_file, create_tag, fetch_sti_rel_notes, \
+                        fetch_openshift_spark_gh_info, fetch_report
 
 # TODO Tokens are exposed when passed as arguments to tasks, consider using secrets
 
@@ -35,7 +33,7 @@ GITHUB_ENDPOINT = "https://github.com"
 
 @celery.task(bind=True)
 def watch_autobuild(self, tags, repo, token, interval, retries, force):
-    log.getLogger('watch_build').setLevel(log.DEBUG)
+    watch_build_logger.getLogger('watch_build').setLevel(log.DEBUG)
     log.getLogger('requests').setLevel(log.WARNING)
     try:
         watch_build(repo, token, interval, retries, force, tags)
@@ -48,21 +46,17 @@ def watch_autobuild(self, tags, repo, token, interval, retries, force):
 """ OPENSHIFT SPARK """
 
 
-# Pre-conditions: The following files are written by repo_ctrl.sh (where project=openshift-spark)
-#   1) tags/branches to file: gh_info.json
-#   2) a report file: outfile.txt
 @celery.task()
 def openshift_spark_update(gh_repo_owner, gh_repo_name, gh_user, gh_email, gh_token, version):
     d = tempfile.mkdtemp()
-    failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh', '-q', gh_repo_owner,
+    failed = subprocess.call(['app/util/bash_scripts/repo_ctrl.sh', gh_repo_owner,
                               gh_repo_name, gh_token, d, version, 'openshift-spark',
                               gh_user, gh_email])
     report = fetch_report(d)
-
-    # Fetch tags in report
     tags_branches = fetch_openshift_spark_gh_info(d)
-    tags_branches = json.loads(tags_branches)
     rmtree(d, ignore_errors=True)
+
+    tags_branches = json.loads(tags_branches)
 
     if failed:
         raise RuntimeError('Failed to execute openshift spark version update script.')
