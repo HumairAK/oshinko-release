@@ -1,9 +1,9 @@
 import requests
 from flask import Blueprint, Response, json, current_app as app, request
-from celery import chain, group
+from celery import group
 from ..util.post_schemas import schemas
 from ..util.validator import validate_schema
-from ..util.util import json_response, get_repo
+from ..util.util import json_response, fetch_gh_info, fetch_dh_info
 from ..tasks import worker
 
 oshsti = Blueprint('oshinko_s2i', __name__, url_prefix='/oshinko_s2i')
@@ -27,18 +27,16 @@ def create_release_branch(version):
     # Update the image.*.yaml files with the change-yaml.sh script
     # Regenerate the *-build directories with make-build-dirs.sh
     # Commit the changes on a releaseXXX branch and make a PR
-    oshinko_s2i = app.config['UPSTREAM_REPOS']['OSHINKO_S2I']
-    user, repo_name = oshinko_s2i['REPO'].split('/')
-    token = oshinko_s2i['TOKEN']
-    bot_name = app.config['META']['BOT_NAME']
-    bot_email = app.config['META']['BOT_EMAIL']
+    gh_repo_owner, repo_name = app.config['UPSTREAM_REPOS']['OSHINKO_S2I'].split('/')
+    gh_user, gh_email, gh_token = fetch_gh_info(app)
 
     # Jenkins/Travis tests run on PR as checks
-    create_pull = worker.oshinko_s2i_create_pr.si(user, repo_name, token, version, BASE_BRANCH)
+    create_pull = worker.oshinko_s2i_create_pr.si(gh_repo_owner, repo_name, gh_user,
+                                                  gh_token, version, BASE_BRANCH)
 
-    worker.oshinko_s2i_create_release_branch.apply_async((user, repo_name, token,
-                                                          version, bot_name,
-                                                          bot_email), link=create_pull)
+    worker.oshinko_s2i_create_rel_branch.apply_async((gh_repo_owner, repo_name,
+                                                          gh_user, gh_email, gh_token,
+                                                          version), link=create_pull)
 
     return json_response('Release branch task is queued.', 200)
 
@@ -60,23 +58,21 @@ def merge_pr():
     data = request.data
     data_dict = json.loads(data)
 
-    context = data_dict['context']
-    commit = data_dict['commit']
-    state = data_dict['state']
-    author = commit['commit']['author']['name']
-    bot_name = app.config['META']['BOT_NAME']
-    bot_email = app.config['META']['BOT_EMAIL']
-    sha = commit['sha']
+    context, commit, state = data_dict['context'], data_dict['commit'], data_dict['state']
+    author, sha_commit = commit['commit']['author']['name'], commit['sha']
+
+    gh_repo_owner, gh_repo_name = app.config['UPSTREAM_REPOS']['OSHINKO_S2I'].split('/')
+    gh_user, gh_email, gh_token = fetch_gh_info(app)
 
     # Only concerned with events authored by the automation system
-    if author != bot_name:
-        msg = 'Event not associated with author {}. No merge initiated.'.format(bot_name),
+    if author != gh_user:
+        msg = 'Commit author mismatch Expected: {}, ' \
+              'Actual: {}. No merge initiated.'.format(gh_user, author),
         return json_response(msg, 200)
 
     # Only concerned with builds that are successful
     if state != 'success':
-        msg = 'Event is not in success state. No merge initiated.',
-        return json_response(msg, 200)
+        return json_response('Event is not in success state. No merge initiated.', 200)
 
     # Get all statuses pertaining to this head commit:
     status_endpoint = data_dict['repository']['statuses_url'].format(sha=sha)
@@ -105,32 +101,32 @@ def merge_pr():
         return json_response(msg, 200)
 
     # Create Workflow
-    head_name = branches[0]['name']
-    oshinko_s2i = app.config['UPSTREAM_REPOS']['OSHINKO_S2I']
-    user, repo_name = oshinko_s2i['REPO'].split('/')
-    token = oshinko_s2i['TOKEN']
-    version = head_name.replace('release', '')
+    head_branch = branches[0]['name']
+    version = head_branch.replace('release', '')
 
-    sti_scala = app.config['DOCKERHUB_REPOS']['OSHINKO_S2I_SCALA']
-    sti_java = app.config['DOCKERHUB_REPOS']['OSHINKO_S2I_JAVA']
-    sti_spark = app.config['DOCKERHUB_REPOS']['OSHINKO_S2I_PYSPARK']
+    sti_scala, sti_scala_token = fetch_dh_info(app, 'OSHINKO_S2I_SCALA')
+    sti_java, sti_java_token = fetch_dh_info(app, 'OSHINKO_S2I_JAVA')
+    sti_pyspark, sti_pyspark_token = fetch_dh_info(app, 'OSHINKO_S2I_PYSPARK')
 
-    merge_pull_request = worker.oshinko_s2i_merge_pr.si(user, repo_name, token,
-                                                        BASE_BRANCH, bot_name,
-                                                        head_name, sha, version)
-    sti_tag_latest = worker.oshinko_s2i_tag_latest.si(user, repo_name, token,
-                                                      version, bot_name, bot_email)
+    dh_repos = {"sti_scala": sti_scala, "sti_java": sti_java, "sti_spark": sti_pyspark}
+
+    merge_pull_request = worker.oshinko_s2i_merge_pr.si(gh_repo_owner, gh_repo_name, gh_user,
+                                                        gh_token, head_branch, BASE_BRANCH,
+                                                        sha_commit)
+
+    sti_tag_latest = worker.oshinko_s2i_tag_latest.si(gh_repo_owner, gh_repo_name,
+                                                      gh_user, gh_email, gh_token, version)
 
     # Group watchbuild tasks, to run in parallel
-    watch_scala_build = worker.watch_autobuild.s(sti_scala['REPO'], sti_scala['TOKEN'],
-                                                 INTERVAL, RETRY_COUNT, False)
-    watch_java_build = worker.watch_autobuild.s(sti_java['REPO'], sti_java['TOKEN'],
-                                                INTERVAL, RETRY_COUNT, False)
-    watch_sti_spark = worker.watch_autobuild.s(sti_spark['REPO'], sti_spark['TOKEN'],
-                                               INTERVAL, RETRY_COUNT, False)
+    watch_scala_build, watch_java_build, watch_sti_spark = (
+        worker.watch_autobuild.s(sti['REPO'], sti['TOKEN'], INTERVAL, RETRY_COUNT, False)
+        for sti in [sti_scala, sti_java, sti_pyspark])
 
     build_tasks = group(watch_java_build, watch_scala_build, watch_sti_spark)
-    sti_template_rel = worker.oshinko_s2i_template_release.si(user, repo_name, token, version)
+
+    oshinko_gh_repo_path = app.config['UPSTREAM_REPOS']['OSHINKO_CLI']
+    sti_template_rel = worker.oshinko_s2i_template_release.si(
+        gh_repo_owner, gh_repo_name, gh_user, gh_token, version, dh_repos, oshinko_gh_repo_path)
 
     # Queue Workflow
     workflow = (merge_pull_request | sti_tag_latest | build_tasks | sti_template_rel)

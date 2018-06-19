@@ -41,3 +41,21 @@ def json_response(message, code):
     payload = json.dumps({'Status': status, 'msg': message})
     return Response(payload, status=code, mimetype="application/json")
 
+
+def fetch_gh_info(app):
+    gh_user = app.config['GH_USER_INFO']['GH_USER']
+    gh_email = app.config['GH_USER_INFO']['GH_EMAIL']
+    gh_token = app.config['GH_USER_INFO']['GH_AUTH_TOKEN']
+    return gh_user, gh_email, gh_token
+
+
+def fetch_dh_info(app, repo):
+    dockerhub_repo = app.config['DOCKERHUB_REPOS'][repo]['REPO']
+    dockerhub_token = app.config['DOCKERHUB_REPOS'][repo]['TOKEN']
+    return dockerhub_repo, dockerhub_token
+
+
+def fetch_sti_rel_notes():
+    with open('sti-release-notes.txt', 'r') as notes_file:
+        notes = notes_file.read()
+    return notes

@@ -95,20 +95,20 @@ function usage() {
   echo
   echo "Tag the latest commit with vA.B.C."
   echo
-  echo "Usage: ./repo_ctrl USER REPO TOKEN TMPDIR VERSION PROJECT AUTHOR EMAIL"
+  echo "Usage: ./repo_ctrl OWNER REPO TOKEN TMPDIR VERSION PROJECT AUTHOR EMAIL"
   echo
   echo "required arguments"
   echo
-  echo "  USER                The user of the PROJECT repository with access rights."
+  echo "  OWNER               The owner of the PROJECT repository"
   echo "  REPO                The PROJECT repository name."
-  echo "  TOKEN               The authentication token tied to the [USER]."
+  echo "  TOKEN               The commiter's auth token."
   echo "  TMPDIR              The temporary working directory."
   echo "  VERSION             The version to update to."
   echo "  PROJECT             The project to operate on. Project can be one of:"
   echo "                      [openshift-spark|oshinko-cli|oshinko-webui|oshinko-s2i|oc-proxy]"
   echo
-  echo "  AUTHOR              Author (associated to the user account) of the committer:"
-  echo "  EMAIL               Email (associated to the user account) of the committer:"
+  echo "  AUTHOR              The committer & author:"
+  echo "  EMAIL               The committer's email:"
   echo
   echo "optional arguments:"
   echo "  -q                  Run script in quiet mode, i.e. no permanent changes made to upstream."

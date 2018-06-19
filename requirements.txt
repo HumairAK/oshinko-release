@@ -1,3 +1,5 @@
+mock
+celery_once
 magic
 jenkins
 celery

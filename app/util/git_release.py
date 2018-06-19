@@ -191,14 +191,18 @@ def delete_release(tag, delete_tag, repo):
         repo.get_git_ref(ref='tags/'+tag).delete()
 
 
-def get_repo(user, repo_name, token):
+# Specify owner if owner != logged in user
+def get_repo(user, repo_name, token, owner=None):
     if token:
         github = Github(user, token)
     else:
         github = Github(user, getpass.getpass())
 
     try:
-        repo = github.get_user(user).get_repo(repo_name)
+        if owner is None:
+            repo = github.get_user(user).get_repo(repo_name)
+        else:
+            repo = github.get_user(owner).get_repo(repo_name)
     except BadCredentialsException:
         error_msg = 'Bad Github credentials. Ensure a valid user and password/token are provided.'
         log.error(error_msg)

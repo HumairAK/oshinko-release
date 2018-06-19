@@ -1,5 +1,5 @@
 from flask import Blueprint, Response, json
-
+from ..util.util import json_response
 home = Blueprint('root', __name__)
 
 
@@ -7,5 +7,4 @@ home = Blueprint('root', __name__)
 @home.route("/")
 def root():
     """ Give a generic response. """
-    r = json.dumps({'Status:': 'OK', 'route': '/'})
-    return Response(r, status=200, mimetype="application/json")
+    return json_response('OK', 200)

@@ -1,15 +1,15 @@
 # Oshinko S2I images used by these templates
 These templates use the following oshinko s2i images:
 
-- radanalyticsio/radanalytics-pyspark:v<<<OSHINKO_VERSION>>> found <<<PYSPARK_LINK>>>
-- radanalyticsio/radanalytics-java-spark:v<<<OSHINKO_VERSION>>> found <<<JAVA_SPARK_LINK>>>
-- radanalyticsio/radanalytics-scala-spark:v<<<OSHINKO_VERSION>>> found <<<SCALA_SPARK_LINK>>>
+- radanalyticsio/radanalytics-pyspark:v0.5.2 found [here](https://hub.docker.com/r/radanalyticsio/radanalytics-pyspark/)
+- radanalyticsio/radanalytics-java-spark:v0.5.2 found [here](https://hub.docker.com/r/radanalyticsio/radanalytics-java-spark/)
+- radanalyticsio/radanalytics-scala-spark:v0.5.2 found [here](https://hub.docker.com/r/radanalyticsio/radanalytics-scala-spark/)
 
 # Apache Spark version
 The referenced oshinko s2i images use Apache Spark 2.3.0
 
 # Oshinko binary version
-The referenced oshinko s2i images use oshinko binary release v<<<OSHINKO_VERSION>>> found <<<CLI_LINK>>>
+The referenced oshinko s2i images use oshinko binary release v0.5.2 found [here](https://github.com/radanalyticsio/oshinko-cli/releases/tag/v0.5.2)
 
 # Summary of changes in templates
 The S2I templates now support kubernetes native scheduling for spark applications as an option

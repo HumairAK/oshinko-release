@@ -24,7 +24,7 @@ function master_update(){
   git --no-pager diff --cached
 
   echo "Commit the changes to master branch"
-  git commit -m "Spark version update for openshift-spark"
+  git commit --author="${COMMIT_AUTHOR} <${COMMIT_EMAIL}>" -m "Spark version update for openshift-spark"
 
   if [ "${QUIET}" = "true" ] ; then
     echo
@@ -33,7 +33,7 @@ function master_update(){
     echo
   else
     echo "### PUSHING TO REPO ${USER}/${REPO} master ###"
-    # git push https://${GITHUB_TOKEN}@github.com/${USER}/${REPO} master
+    git push https://${GITHUB_TOKEN}@github.com/${USER}/${REPO} master
   fi
 }
 

@@ -19,17 +19,8 @@ def register_blueprints(flask_app):
 def create_app(register_bp=True):
     app = Flask(__name__)
 
-    backend = 'db+postgresql://userQJC:I5g0wmW3qSub8N6f@localhost:5432/sampledb'
-    broker = 'amqp://localhost//'
-
     if register_bp:
         register_blueprints(app)
-
-    app.config.update(
-        CELERY_BROKER_URL=broker,
-        CELERY_RESULT_BACKEND=backend,
-        CELERY_TRACK_STARTED=True
-    )
 
     app.config.from_json('config.json')
 
@@ -37,7 +28,7 @@ def create_app(register_bp=True):
 
 
 def create_celery(app):
-    celery = Celery(app.import_name, broker=app.config['CELERY_BROKER_URL'])
+    celery = Celery(app.import_name)
     celery.conf.update(app.config)
     task_base = celery.Task
 
@@ -47,6 +38,5 @@ def create_celery(app):
         def __call__(self, *args, **kwargs):
             with app.app_context():
                 return task_base.__call__(self, *args, **kwargs)
-
     celery.Task = ContextTask
     return celery
