@@ -24,6 +24,9 @@ def create_app(register_bp=True):
 
     app.config.from_json('config.json')
 
+    from models.models import db
+    db.init_app(app)
+
     return app
 
 

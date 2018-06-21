@@ -31,6 +31,11 @@ DOCKERHUB_ENDPOINT = "https://hub.docker.com/r"
 GITHUB_ENDPOINT = "https://github.com"
 
 
+@celery.task()
+def tester():
+    return 0
+
+
 @celery.task(bind=True)
 def watch_autobuild(self, tags, repo, token, interval, retries, force):
     watch_build_logger.getLogger('watch_build').setLevel(log.DEBUG)
@@ -283,9 +288,8 @@ def oshinko_s2i_tag_latest(gh_repo_owner, gh_repo_name, gh_user, gh_email, gh_to
 @celery.task()
 def oshinko_s2i_template_release(gh_repo_owner, gh_repo_name, gh_user,
                                  gh_token, version, dh_repos, oshinko_gh_repo_path):
-    # Ensure the file is read/write by the creator only
+    log.getLogger('create_release').setLevel(log.INFO)
 
-    # TODO: Notes should be automated in the future
     body = fetch_sti_rel_notes()
 
     # https://github.com/radanalyticsio/oshinko-cli/releases/tag/
