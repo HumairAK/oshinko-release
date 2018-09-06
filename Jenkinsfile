@@ -160,9 +160,9 @@ String PR_AND_MERGE_HANDLER = "./git_create_pr.py"
 Map<String, String> GH_REPOS = parseReposParameter(params.githubRepositories as String)
 Map<String, String> DH_REPOS = parseReposParameter(params.dockerhubRepositories as String)
 
-int AUTOBUILD_STAGE_RETRY_COUNT = params.autobuildStageRetryCount
-int WATCH_INTERVAL_DEFAULT = params.repoWatchInterval
-int WATCH_RETRY_COUNT_DEFAULT = params.watchRetryCount
+int AUTOBUILD_STAGE_RETRY_COUNT = params.autobuildStageRetryCount as Integer
+int WATCH_INTERVAL_DEFAULT = params.repoWatchInterval as Integer
+int WATCH_RETRY_COUNT_DEFAULT = params.watchRetryCount as Integer
 
 node {
     withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-qe-github',
