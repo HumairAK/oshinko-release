@@ -33,15 +33,9 @@ Map<String, String> BUILD_PARAMETERS = [
         "stiMergeToBranch": stiMergeToBranch,
 ]
 
-private void prepareWorkspace(String githubDirectory) {
-
+private void prepareWorkspace() {
     // wipeout workspace
     deleteDir()
-
-    dir(githubDirectory) {
-        checkout scm
-    }
-
     sh('concreate --version')
 }
 
@@ -177,7 +171,7 @@ node {
                  "OSHINKO_CLI_JOB=${OSHINKO_CLI_JOB}"]){
 
             validateParameters(GH_REPOS, DH_REPOS, BUILD_PARAMETERS)
-            prepareWorkspace(GH_RELEASE_DIR)
+            prepareWorkspace()
 
             String stageOptions = params.stageOptions
             String[] stageOptionsList = stageOptions.split(',')
