@@ -56,6 +56,10 @@ def get_opts():
     parser.add_argument('-b', metavar='Branch', dest='branches', default=[], type=str, nargs="+",
                         help='supply the branch source from which the build was created, to watch.')
 
+    parser.add_argument('-x', dest='fexit', default=False, action='store_true',
+                        help='setting this flag will cause the script to force exit(1) on first build error/cancelled'
+                             ' detected, this option will take precedence over the others')
+
     args = parser.parse_args()
 
     tags = args.tags
@@ -77,17 +81,16 @@ def get_opts():
         }
         docker_tags.append(meta_info)
 
-    repo, token, interval, retries, force, verbose = \
+    repo, token, interval, retries, force, verbose, force_exit = \
         args.repo[0], args.token[0], args.interval[0], args.retries[0], \
-        args.force, args.verbose
+        args.force, args.verbose, args.fexit
 
     loglevel = WITH_VERBOSITY if verbose else WITHOUT_VERBOSITY
     log.basicConfig(format='%(asctime)s - %(levelname)s:%(message)s', level=loglevel)
     log.getLogger('requests').setLevel(log.WARNING)
 
     validate(parser, repo, token)
-
-    return repo, token, interval, retries, force, docker_tags
+    return repo, token, interval, retries, force, docker_tags, force_exit
 
 
 def validate(parser, repo, token):
@@ -185,7 +188,7 @@ def trigger_build(user, repo, build, token, force=False):
     return r.status_code == 200
 
 
-def watch_build(repo, token, interval, retries, force, tags):
+def watch_build(repo, token, interval, retries, force, tags, exit_on_failure):
     user, repo = repo.split('/')
 
     builds_to_watch = fetch_builds(tags, user, repo, 200) \
@@ -201,13 +204,18 @@ def watch_build(repo, token, interval, retries, force, tags):
     for build in builds_to_watch:
         status, build_code = build['status'], build['build_code']
         if status == SUCCESS or status < QUEUED:
-            if not force:
-                state = 'success' if status == SUCCESS else 'stalled'
-                error_msg = 'The build [{}] is in a {} state. Nothing to watch. Use -f to ' \
-                            'force a trigger. Exiting.'.format(build_code, state)
+            state = 'success' if status == SUCCESS else 'stalled'
+            error_msg = 'The build [{}] is in a {} state. Nothing to watch.'.format(build_code, state)
+            # If the first build fetch has an error and -x is specified, we exit the script
+            if exit_on_failure and status < QUEUED:
                 log.error(error_msg)
-                raise RuntimeError(error_msg)
-
+                log.error("-x flag detected, exiting.")
+                exit(1)
+            # Otherwise if -x in not specified and the build is in some stalled state, we exit if there's no --force
+            elif not force:
+                log.error("Use -f to force a trigger.")
+                log.error(error_msg)
+                exit(1)
             else:
                 initial_builds_to_trigger.append(build)
 
@@ -234,7 +242,13 @@ def watch_build(repo, token, interval, retries, force, tags):
             status = build['status']
             if status != SUCCESS:
                 new_builds_to_watch.append(build)
-                if status < QUEUED:
+                if exit_on_failure and status < QUEUED:
+                    error_msg = 'The build [{}] is in a {} state.'.format(build['build_code'], status)
+                    # If the first build fetch has an error and -x is specified, we exit the script
+                    log.error(error_msg)
+                    log.error("-x flag detected, exiting.")
+                    exit(1)
+                elif status < QUEUED:
                     builds_to_trigger.append(build)
                 else:
                     builds_in_process.append(build)
@@ -274,8 +288,8 @@ def watch_build(repo, token, interval, retries, force, tags):
 
 
 def main():
-    repo, token, interval, retries, force, tags = get_opts()
-    watch_build(repo, token, interval, retries, force, tags)
+    repo, token, interval, retries, force, tags, exit_on_failure = get_opts()
+    watch_build(repo, token, interval, retries, force, tags, exit_on_failure)
 
 
 if __name__ == "__main__":
