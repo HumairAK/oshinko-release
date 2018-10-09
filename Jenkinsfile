@@ -101,9 +101,11 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                     String message = "The autobuild watch for the current stage failed. Please review the logs and " +
                             "check ${DH_REPO_OWNER}/${DH_REPO} repository. Once resolved select one of the following " +
                             "options, or click abort to exit pipeline."
-                    String [] inputChoices = ["1: Force Re-trigger Build", "2: Force re-trigger until success.",
-                                              "3: Build manually restarted, continue to re-trigger until success.",
-                                              "4: Continue to next stage."]
+                    String [] inputChoices = ["1: Force Re-trigger Build",
+                                              "2: Force re-trigger until success.",
+                                              "3: Build manually restarted, retry watch build once. Will prompt again on failure.",
+                                              "4: Build manually restarted, continue to re-trigger until success.",
+                                              "5: Continue to next stage."]
                     userInput = input(id: 'userInput',
                             message: message,
                             parameters: [[$class: 'ChoiceParameterDefinition',
@@ -113,6 +115,7 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                     if (option == '1'){
                         // choice: retry once
                         exit_on_fail = true
+                        force_retry = true
                         retry = true
                     }
                     else if (option == '2') {
@@ -122,10 +125,13 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                         retry = true
                     }
                     else if (options == '3') {
+                        exit_on_fail = true
+                        retry = true
+                    } else if (options == '4'){
                         exit_on_fail = false
                         retry = true
                     }
-                    else if (option == '4'){
+                    else if (option == '5'){
                         retry = false
                     }
                     else {
