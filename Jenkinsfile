@@ -87,10 +87,10 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                 if(exit_on_fail) { additionalArgs += " -x"}
 
                 // Run the autobuild script
-                def return_status = sh("${BUILD_WATCHER} ${DH_REPO_OWNER}/${DH_REPO} ${TRIGGER_TOKEN} " +
+                def return_status = sh script: "${BUILD_WATCHER} ${DH_REPO_OWNER}/${DH_REPO} ${TRIGGER_TOKEN} " +
                         "-r ${RETRY_COUNT} " +
                         "-i ${INTERVAL}" +
-                        "${additionalArgs}", returnStatus: true)
+                        "${additionalArgs}", returnStatus: true
 
                 // Return status 5 from watch script indicates the build was found to be in error or cancelled
                 // This error only occurs when the -x (exit_on_fail) flag is passed into the script
@@ -380,7 +380,7 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
                     echo "Starting ${currentStage} stage...."
                     echo "Creating pr to watch then performing merge for ${CURRENT_PROJECT}..."
                     String ghRepo = GH_REPOS.get(CURRENT_PROJECT)
-                    def return_code = sh("${PR_AND_MERGE_HANDLER} " +
+                    def return_code = sh script: "${PR_AND_MERGE_HANDLER} " +
                             "${GH_REPO_OWNER}/${ghRepo} " +
                             "${GH_AUTH_TOKEN} ${OSHINKO_VERSION} " +
                             "${GH_USER} ${STI_BASE_BRANCH} " +
@@ -389,7 +389,7 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
                             "-r ${RETRY_COUNT} " +
                             "-s ${STI_CI_CONTEXTS} " +
                             "-t \"${STI_PR_TITLE}\" " +
-                            "-b \"${STI_PR_BODY}\"", returnStatus: true)
+                            "-b \"${STI_PR_BODY}\"", returnStatus: true
 
                     // If the PR check fails, request human operator intervention
                     if (return_code != 0){
