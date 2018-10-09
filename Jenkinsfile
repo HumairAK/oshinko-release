@@ -124,10 +124,10 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                         force_retry = true
                         retry = true
                     }
-                    else if (options == '3') {
+                    else if (option == '3') {
                         exit_on_fail = true
                         retry = true
-                    } else if (options == '4'){
+                    } else if (option == '4'){
                         exit_on_fail = false
                         retry = true
                     }
