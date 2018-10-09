@@ -33,6 +33,15 @@ Map<String, String> BUILD_PARAMETERS = [
         "stiMergeToBranch": stiMergeToBranch,
 ]
 
+private static int indexOf(String[] items, String item){
+    for (int i = 0; i < items.length; i++) {
+        if(items[i] == item){
+            return i
+        }
+    }
+    return -1
+}
+
 private void prepareWorkspace() {
     // wipeout workspace
     deleteDir()
@@ -64,24 +73,85 @@ private void watchAutoBuildStage(String sourceTag, String credentialsId){
     watchAutoBuildStage(sourceTag, "", credentialsId)
 }
 
+
 private void watchAutoBuildStage(String sourceTag, String sourceBranch, String credentialsId){
     stage("watch-autobuilds: ${CURRENT_PROJECT}") {
-        retry(STAGE_RETRY_COUNT as Integer) {
+        boolean exit_on_fail = true
+        boolean retry = true
+        int max_retry = STAGE_RETRY_COUNT as Integer
+
+        while (retry && max_retry > 0){
             withCredentials([string(credentialsId: "${credentialsId}", variable: 'TRIGGER_TOKEN')]) {
                 String additionalArgs = ""
                 if(sourceBranch){ additionalArgs += " -b ${sourceBranch}" as String }
                 if(sourceTag){ additionalArgs += " -t ${sourceTag}" as String }
-                try {
-                    sh("${BUILD_WATCHER} ${DH_REPO_OWNER}/${DH_REPO} ${TRIGGER_TOKEN} " +
-                            "-r ${RETRY_COUNT} " +
-                            "-i ${INTERVAL}" +
-                            "${additionalArgs}")
-                } catch (err) {
+                if(exit_on_fail) { additionalArgs += " -x"}
+
+                // Run the autobuild script
+                def return_status = sh("${BUILD_WATCHER} ${DH_REPO_OWNER}/${DH_REPO} ${TRIGGER_TOKEN} " +
+                        "-r ${RETRY_COUNT} " +
+                        "-i ${INTERVAL}" +
+                        "${additionalArgs}", returnStatus: true)
+
+                // Return status 5 from watch script indicates the build was found to be in error or cancelled
+                // This error only occurs when the -x (exit_on_fail) flag is passed into the script
+                if (return_status == 5){
+                    // ask for human intervention
+                    String message = "The autobuild watch for the current stage failed. Please review the logs and " +
+                            "check ${DH_REPO_OWNER}/${DH_REPO} repository. Once resolved select one of the following " +
+                            "options, or click abort to exit pipeline."
+                    String [] inputChoices = ["1: Re-trigger Build", "2: Keep re-triggering build until success.",
+                                              "3: Continue to next stage."]
+                    userInput = input(id: 'userInput',
+                            message: message,
+                            parameters: [[$class: 'ChoiceParameterDefinition',
+                                          choices: "${inputChoices.join("\n")}",
+                                          name: 'Options:']])
+                    String option = userInput.split(':')[0]
+                    if (option == '1'){
+                        // choice: retry once
+                        exit_on_fail = true
+                        retry = true
+                    }
+                    else if (option == '2') {
+                        // choice: retry until success
+                        exit_on_fail = false
+                        retry = true
+                    }
+                    else if (option == '3'){
+                        retry = false
+                    }
+                    else {
+                        // response not recognized, should never reach this point
+                        retry = false
+                        error "unrecognized input during autobuild watch stage."
+                    }
+
+                }
+                else if (return_status != 0) {
+                    // This block is a sanity check for when the autobuild hasn't launched yet. I.e. stage is executed
+                    // too early. The additional attempts to retry exist to give time for the build to start.
                     sleep(time: 5, unit: 'SECONDS')
-                    throw err
+                    max_retry -= 1
+
+                    if (max_retry < 1){
+                        String message = "Attempted to run watch script ${STAGE_RETRY_COUNT} without success." +
+                                "It's possible dockerhub is slow and the autobuild has not started again, select " +
+                                "the next action:" as String
+                        String [] inputChoices = ["1: Retry 3 more times", "2: Continue to next stage."]
+                        userInput = input(id: 'userInput', message:message,
+                                parameters: [[$class: 'ChoiceParameterDefinition',
+                                              choices: "${inputChoices.join("\n")}",
+                                              name: 'Options:']])
+                        String option = userInput.split(':')[0]
+                        if (option == '1'){
+                            max_retry = 3
+                        }
+                    }
                 }
             }
         }
+
     }
 }
 
@@ -170,6 +240,7 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
 
         String stageOptions = params.stageOptions
         String[] stageOptionsList = stageOptions.split(',')
+        String currentStage = ""
 
         sh "pwd"
         sh "ls -lat"
@@ -290,20 +361,22 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
         // Oshinko S2I Stages
         String stiProject = "oshinko-s2i"
         withEnv(["CURRENT_PROJECT=${stiProject}", "GH_REPO=${GH_REPOS.get(stiProject)}"]){
-            if('oshinko-s2i-github-release-branch' in stageOptionsList){
-                echo "Starting oshinko-s2i-github-release-branch stage...."
+            currentStage = "oshinko-s2i-github-release-branch"
+            if(currentStage in stageOptionsList){
+                echo "Starting ${currentStage} stage...."
                 stage("create release branch: ${CURRENT_PROJECT}") {
                     echo "Creating release branch for ${CURRENT_PROJECT}...."
                     repoCtrl(0)
                 }
             }
 
-            if('oshinko-s2i-github-create-and-merge-pr' in stageOptionsList){
+            currentStage = 'oshinko-s2i-github-create-and-merge-pr'
+            if(currentStage in stageOptionsList){
                 stage("create-merge-pull-request: ${CURRENT_PROJECT}") {
-                    echo "Starting oshinko-s2i-github-create-and-merge-pr stage...."
+                    echo "Starting ${currentStage} stage...."
                     echo "Creating pr to watch then performing merge for ${CURRENT_PROJECT}..."
                     String ghRepo = GH_REPOS.get(CURRENT_PROJECT)
-                    sh("${PR_AND_MERGE_HANDLER} " +
+                    def return_code = sh("${PR_AND_MERGE_HANDLER} " +
                             "${GH_REPO_OWNER}/${ghRepo} " +
                             "${GH_AUTH_TOKEN} ${OSHINKO_VERSION} " +
                             "${GH_USER} ${STI_BASE_BRANCH} " +
@@ -312,20 +385,37 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
                             "-r ${RETRY_COUNT} " +
                             "-s ${STI_CI_CONTEXTS} " +
                             "-t \"${STI_PR_TITLE}\" " +
-                            "-b \"${STI_PR_BODY}\"")
+                            "-b \"${STI_PR_BODY}\"", returnStatus: true)
+
+                    // If the PR check fails, request human operator intervention
+                    if (return_code != 0){
+                        int currentStageIndex = indexOf(stageOptionsList, currentStage)
+                        String nextStage = stageOptionsList[currentStageIndex + 1]
+                        String [] inputChoices = ["Continue"]
+                        userInput = input(id: 'userInput',
+                                message:"The stage ${currentStage} failed. In order to continue all issues need to be " +
+                                        "resolved. Note next stage is: ${nextStage}. Once all issues are fixed select " +
+                                        "one of the following options:",
+                                parameters: [[$class: 'ChoiceParameterDefinition',
+                                              choices: "${inputChoices.join("\n")}",
+                                              name: 'nextAction']])
+                    }
+
                 }
             }
 
-            if('oshinko-s2i-github-tag-push' in stageOptionsList){
-                echo "Starting oshinko-s2i-github-tag-push stage...."
+            currentStage = 'oshinko-s2i-github-tag-push'
+            if(currentStage in stageOptionsList){
+                echo "Starting ${currentStage} stage...."
                 stage("create-tag: ${CURRENT_PROJECT}") {
                     echo "Creating tag for ${CURRENT_PROJECT}..."
                     repoCtrl(1)
                 }
             }
 
-            if('oshinko-s2i-watch-autobuild' in stageOptionsList){
-                echo "Starting oshinko-s2i-watch-autobuild stage...."
+            currentStage = 'oshinko-s2i-watch-autobuild'
+            if(currentStage in stageOptionsList){
+                echo "Starting ${currentStage} stage...."
                 stage("watch-autobuilds: ${CURRENT_PROJECT}"){
                     String sourceTag = createTag(OSHINKO_VERSION)
 
@@ -359,8 +449,9 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
                 }
             }
 
-            if('oshinko-s2i-github-create-release' in stageOptionsList){
-                echo "Starting oshinko-s2i-github-create-release stage...."
+            currentStage = 'oshinko-s2i-github-create-release'
+            if(currentStage in stageOptionsList){
+                echo "Starting ${currentStage}  stage...."
                 stage("creating release: ${CURRENT_PROJECT}") {
                     echo "Creating a release for ${CURRENT_PROJECT}..."
                     // Read template rel notes
@@ -419,7 +510,7 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
         }
 
         // OC Proxy Stages
-        String ocproxyProject = "oc-proxy"
+        ocproxyProject = "oc-proxy"
         withEnv(["CURRENT_PROJECT=${ocproxyProject}", "GH_REPO=${GH_REPOS.get(ocproxyProject)}"]) {
             if('oc-proxy-github-tag-push' in stageOptionsList){
                 echo "Starting oc-proxy-github-tag-push stage...."

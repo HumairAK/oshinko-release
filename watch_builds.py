@@ -57,7 +57,7 @@ def get_opts():
                         help='supply the branch source from which the build was created, to watch.')
 
     parser.add_argument('-x', dest='fexit', default=False, action='store_true',
-                        help='setting this flag will cause the script to force exit(1) on first build error/cancelled'
+                        help='setting this flag will cause the script to force exit(5) on first build error/cancelled'
                              ' detected, this option will take precedence over the others')
 
     args = parser.parse_args()
@@ -210,7 +210,7 @@ def watch_build(repo, token, interval, retries, force, tags, exit_on_failure):
             if exit_on_failure and status < QUEUED:
                 log.error(error_msg)
                 log.error("-x flag detected, exiting.")
-                exit(1)
+                exit(5)
             # Otherwise if -x in not specified and the build is in some stalled state, we exit if there's no --force
             elif not force:
                 log.error("Use -f to force a trigger.")
@@ -247,7 +247,7 @@ def watch_build(repo, token, interval, retries, force, tags, exit_on_failure):
                     # If the first build fetch has an error and -x is specified, we exit the script
                     log.error(error_msg)
                     log.error("-x flag detected, exiting.")
-                    exit(1)
+                    exit(5)
                 elif status < QUEUED:
                     builds_to_trigger.append(build)
                 else:
