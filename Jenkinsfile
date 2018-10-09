@@ -78,9 +78,8 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
         boolean exit_on_fail = true
         boolean retry = true
         int max_retry = STAGE_RETRY_COUNT as Integer
-
-        while (retry && max_retry > 0){
-            withCredentials([string(credentialsId: "${credentialsId}", variable: 'TRIGGER_TOKEN')]) {
+        withCredentials([string(credentialsId: "${credentialsId}", variable: 'TRIGGER_TOKEN')]) {
+            while (retry && max_retry > 0){
                 String additionalArgs = ""
                 if(sourceBranch){ additionalArgs += " -b ${sourceBranch}" as String }
                 if(sourceTag){ additionalArgs += " -t ${sourceTag}" as String }
