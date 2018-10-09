@@ -77,6 +77,7 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
     stage("watch-autobuilds: ${CURRENT_PROJECT}") {
         boolean exit_on_fail = true
         boolean retry = true
+        boolean force_retry = false
         int max_retry = STAGE_RETRY_COUNT as Integer
 
         withCredentials([string(credentialsId: "${credentialsId}", variable: 'TRIGGER_TOKEN')]) {
@@ -85,6 +86,7 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                 if(sourceBranch){ additionalArgs += " -b ${sourceBranch}" as String }
                 if(sourceTag){ additionalArgs += " -t ${sourceTag}" as String }
                 if(exit_on_fail) { additionalArgs += " -x"}
+                if(force_retry) { additionalArgs += " -f"}
 
                 // Run the autobuild script
                 def return_status = sh script: "${BUILD_WATCHER} ${DH_REPO_OWNER}/${DH_REPO} ${TRIGGER_TOKEN} " +
@@ -99,8 +101,9 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                     String message = "The autobuild watch for the current stage failed. Please review the logs and " +
                             "check ${DH_REPO_OWNER}/${DH_REPO} repository. Once resolved select one of the following " +
                             "options, or click abort to exit pipeline."
-                    String [] inputChoices = ["1: Re-trigger Build", "2: Keep re-triggering build until success.",
-                                              "3: Continue to next stage."]
+                    String [] inputChoices = ["1: Force Re-trigger Build", "2: Force re-trigger until success.",
+                                              "3: Build manually restarted, continue to re-trigger until success.",
+                                              "4: Continue to next stage."]
                     userInput = input(id: 'userInput',
                             message: message,
                             parameters: [[$class: 'ChoiceParameterDefinition',
@@ -115,15 +118,20 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                     else if (option == '2') {
                         // choice: retry until success
                         exit_on_fail = false
+                        force_retry = true
                         retry = true
                     }
-                    else if (option == '3'){
+                    else if (options == '3') {
+                        exit_on_fail = false
+                        retry = true
+                    }
+                    else if (option == '4'){
                         retry = false
                     }
                     else {
                         // response not recognized, should never reach this point
                         retry = false
-                        error "unrecognized input during autobuild watch stage."
+                        error "unrecognized inpu during autobuild watch stage."
                     }
 
                 }
