@@ -429,21 +429,33 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
                 echo "Starting ${currentStage} stage...."
                 stage("watch-autobuilds: ${CURRENT_PROJECT}"){
                     String sourceTag = createTag(OSHINKO_VERSION)
-                    withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-java")}"]) {
-                        watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_java')
-                    }
-                    withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-pyspark")}"]) {
-                        watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_pysprk')
-                    }
-                    withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-scala")}"]) {
-                        watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_scala')
-                    }
-                    withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-pyspark-36")}"]) {
-                        watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_pysprk_36')
-                    }
-                    withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-r-spark")}"]) {
-                        watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_rspark')
-                    }
+                    parallel (
+                            'java-spark': {
+                                withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-java")}"]) {
+                                    watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_java')
+                                }
+                            },
+                            'py-spark': {
+                                withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-pyspark")}"]) {
+                                    watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_pysprk')
+                                }
+                            },
+                            'scala-spark': {
+                                withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-scala")}"]) {
+                                    watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_scala')
+                                }
+                            },
+                            'py-spark-36': {
+                                withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-pyspark-36")}"]) {
+                                    watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_pysprk_36')
+                                }
+                            },
+                            'r-spark': {
+                                withEnv(["DH_REPO=${DH_REPOS.get("oshinko-s2i-r-spark")}"]) {
+                                    watchAutoBuildStage(sourceTag, 'dh_trigger_token_sti_rspark')
+                                }
+                            }
+                    )
                 }
             }
 
