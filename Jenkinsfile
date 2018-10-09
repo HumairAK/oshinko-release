@@ -73,7 +73,6 @@ private void watchAutoBuildStage(String sourceTag, String credentialsId){
     watchAutoBuildStage(sourceTag, "", credentialsId)
 }
 
-
 private void watchAutoBuildStage(String sourceTag, String sourceBranch, String credentialsId){
     stage("watch-autobuilds: ${CURRENT_PROJECT}") {
         boolean exit_on_fail = true
@@ -148,6 +147,11 @@ private void watchAutoBuildStage(String sourceTag, String sourceBranch, String c
                             max_retry = 3
                         }
                     }
+                }
+                else {
+                    // Autobuild was successfull
+                    retry = false
+                    max_retry = 0
                 }
             }
         }
@@ -390,12 +394,19 @@ withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radly-
                     // If the PR check fails, request human operator intervention
                     if (return_code != 0){
                         int currentStageIndex = indexOf(stageOptionsList, currentStage)
-                        String nextStage = stageOptionsList[currentStageIndex + 1]
+
+                        String message = "The stage ${currentStage} failed. In order to continue all issues need to be resolved."
+
+                        if (stageOptionsList.length > currentStageIndex + 2){
+                            String nextStage = stageOptionsList[currentStageIndex + 1]
+                            message += "Note next stage is: ${nextStage}.Once all issues are fixed select one of the following options:"
+                        }
+                        else {
+                            message += "Note this is the last stage. Once the issue is resolved the pipeline will end successfully."
+                        }
                         String [] inputChoices = ["Continue"]
                         userInput = input(id: 'userInput',
-                                message:"The stage ${currentStage} failed. In order to continue all issues need to be " +
-                                        "resolved. Note next stage is: ${nextStage}. Once all issues are fixed select " +
-                                        "one of the following options:",
+                                message: message,
                                 parameters: [[$class: 'ChoiceParameterDefinition',
                                               choices: "${inputChoices.join("\n")}",
                                               name: 'nextAction']])
